@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音声認識デバッグツール</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-2xl font-bold mb-4">🔧 音声認識デバッグツール</h1>
+        
+        <!-- ブラウザサポート状況 -->
+        <div class="bg-white rounded-lg shadow p-6 mb-4">
+            <h2 class="text-lg font-semibold mb-3">ブラウザサポート状況</h2>
+            <div id="browserSupport" class="space-y-2"></div>
+        </div>
+
+        <!-- マイクアクセステスト -->
+        <div class="bg-white rounded-lg shadow p-6 mb-4">
+            <h2 class="text-lg font-semibold mb-3">マイクアクセステスト</h2>
+            <button id="testMic" class="bg-blue-500 text-white px-4 py-2 rounded mr-2">マイクテスト開始</button>
+            <button id="stopMic" class="bg-red-500 text-white px-4 py-2 rounded">停止</button>
+            <div id="micResult" class="mt-3"></div>
+        </div>
+
+        <!-- 基本音声認識テスト -->
+        <div class="bg-white rounded-lg shadow p-6 mb-4">
+            <h2 class="text-lg font-semibold mb-3">基本音声認識テスト</h2>
+            <button id="testSpeech" class="bg-green-500 text-white px-4 py-2 rounded mr-2">音声認識テスト開始</button>
+            <button id="stopSpeech" class="bg-red-500 text-white px-4 py-2 rounded">停止</button>
+            <div id="speechResult" class="mt-3 p-3 bg-gray-50 rounded min-h-[100px]"></div>
+        </div>
+
+        <!-- リアルタイムログ -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-lg font-semibold mb-3">リアルタイムログ</h2>
+            <button id="clearLog" class="bg-gray-500 text-white px-4 py-2 rounded mb-3">ログクリア</button>
+            <div id="debugLog" class="bg-black text-green-400 p-3 rounded font-mono text-sm max-h-96 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <script>
+        class DebugTool {
+            constructor() {
+                this.recognition = null;
+                this.mediaStream = null;
+                this.logContainer = document.getElementById('debugLog');
+                this.init();
+            }
+
+            init() {
+                this.checkBrowserSupport();
+                this.setupEventListeners();
+                this.log('デバッグツールが初期化されました');
+            }
+
+            log(message) {
+                const timestamp = new Date().toISOString().substring(11, 23);
+                const logElement = document.createElement('div');
+                logElement.textContent = `[${timestamp}] ${message}`;
+                this.logContainer.appendChild(logElement);
+                this.logContainer.scrollTop = this.logContainer.scrollHeight;
+                console.log(message);
+            }
+
+            checkBrowserSupport() {
+                const supportDiv = document.getElementById('browserSupport');
+                const checks = [
+                    {
+                        name: 'webkitSpeechRecognition',
+                        available: 'webkitSpeechRecognition' in window,
+                        description: 'Chrome/Edge/Safari音声認識'
+                    },
+                    {
+                        name: 'SpeechRecognition',
+                        available: 'SpeechRecognition' in window,
+                        description: 'Firefox音声認識'
+                    },
+                    {
+                        name: 'MediaDevices.getUserMedia',
+                        available: navigator.mediaDevices && navigator.mediaDevices.getUserMedia,
+                        description: 'マイクアクセス'
+                    },
+                    {
+                        name: 'HTTPS',
+                        available: location.protocol === 'https:' || location.hostname === 'localhost',
+                        description: 'セキュア接続'
+                    }
+                ];
+
+                checks.forEach(check => {
+                    const div = document.createElement('div');
+                    div.className = `flex items-center space-x-2 ${check.available ? 'text-green-600' : 'text-red-600'}`;
+                    div.innerHTML = `
+                        <span>${check.available ? '✅' : '❌'}</span>
+                        <span class="font-medium">${check.name}</span>
+                        <span class="text-sm text-gray-600">(${check.description})</span>
+                    `;
+                    supportDiv.appendChild(div);
+                });
+
+                this.log(`ブラウザサポートチェック完了: ${checks.filter(c => c.available).length}/${checks.length}`);
+            }
+
+            setupEventListeners() {
+                document.getElementById('testMic').addEventListener('click', () => this.testMicrophone());
+                document.getElementById('stopMic').addEventListener('click', () => this.stopMicrophone());
+                document.getElementById('testSpeech').addEventListener('click', () => this.testSpeechRecognition());
+                document.getElementById('stopSpeech').addEventListener('click', () => this.stopSpeechRecognition());
+                document.getElementById('clearLog').addEventListener('click', () => this.clearLog());
+            }
+
+            async testMicrophone() {
+                this.log('マイクアクセステストを開始...');
+                const resultDiv = document.getElementById('micResult');
+                
+                try {
+                    this.mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        } 
+                    });
+                    
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const analyser = audioContext.createAnalyser();
+                    const microphone = audioContext.createMediaStreamSource(this.mediaStream);
+                    microphone.connect(analyser);
+                    
+                    analyser.fftSize = 256;
+                    const bufferLength = analyser.frequencyBinCount;
+                    const dataArray = new Uint8Array(bufferLength);
+                    
+                    resultDiv.innerHTML = '<div class="text-green-600">✅ マイクアクセス成功</div><div id="audioLevel" class="mt-2"></div>';
+                    this.log('マイクアクセス成功');
+                    
+                    // 音声レベル表示
+                    const updateLevel = () => {
+                        analyser.getByteFrequencyData(dataArray);
+                        const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+                        document.getElementById('audioLevel').innerHTML = `
+                            <div class="text-sm">音声レベル: ${Math.round(average)}</div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: ${(average/255)*100}%"></div>
+                            </div>
+                        `;
+                        if (this.mediaStream && this.mediaStream.active) {
+                            requestAnimationFrame(updateLevel);
+                        }
+                    };
+                    updateLevel();
+                    
+                } catch (error) {
+                    this.log(`マイクアクセスエラー: ${error.name} - ${error.message}`);
+                    resultDiv.innerHTML = `<div class="text-red-600">❌ マイクアクセス失敗: ${error.message}</div>`;
+                }
+            }
+
+            stopMicrophone() {
+                if (this.mediaStream) {
+                    this.mediaStream.getTracks().forEach(track => track.stop());
+                    this.mediaStream = null;
+                    this.log('マイクアクセスを停止しました');
+                    document.getElementById('micResult').innerHTML = '<div class="text-gray-600">マイクアクセスが停止されました</div>';
+                }
+            }
+
+            testSpeechRecognition() {
+                this.log('音声認識テストを開始...');
+                const resultDiv = document.getElementById('speechResult');
+                
+                if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                    this.log('音声認識がサポートされていません');
+                    resultDiv.innerHTML = '<div class="text-red-600">❌ このブラウザは音声認識をサポートしていません</div>';
+                    return;
+                }
+
+                try {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    this.log(`SpeechRecognition constructor: ${SpeechRecognition.name}`);
+                    
+                    this.recognition = new SpeechRecognition();
+                    this.log('SpeechRecognition インスタンス作成成功');
+                    
+                    // より安全な設定から開始
+                    this.recognition.continuous = false;  // まず一回だけ
+                    this.recognition.interimResults = false;  // 最終結果のみ
+                    this.recognition.lang = 'ja-JP';
+                    
+                    // 追加設定
+                    if ('maxAlternatives' in this.recognition) {
+                        this.recognition.maxAlternatives = 1;
+                        this.log('maxAlternatives設定: 1');
+                    }
+                    
+                    this.log(`設定完了 - continuous: ${this.recognition.continuous}, interimResults: ${this.recognition.interimResults}`);
+
+                    let transcript = '';
+
+                    this.recognition.onstart = () => {
+                        this.log('✅ 音声認識が正常に開始されました');
+                        resultDiv.innerHTML = '<div class="text-blue-600">🎤 聞き取り中... 何か話してください (5秒程度)</div>';
+                    };
+
+                    this.recognition.onspeechstart = () => {
+                        this.log('🗣️ 音声検出開始');
+                    };
+
+                    this.recognition.onspeechend = () => {
+                        this.log('🤫 音声検出終了');
+                    };
+
+                    this.recognition.onsoundstart = () => {
+                        this.log('🔊 サウンド検出開始');
+                    };
+
+                    this.recognition.onsoundend = () => {
+                        this.log('🔇 サウンド検出終了');
+                    };
+
+                    this.recognition.onaudiostart = () => {
+                        this.log('🎵 オーディオ入力開始');
+                    };
+
+                    this.recognition.onaudioend = () => {
+                        this.log('🎵 オーディオ入力終了');
+                    };
+
+                    this.recognition.onresult = (event) => {
+                        this.log(`🎯 音声認識結果を受信: ${event.results.length} results`);
+                        
+                        let interimTranscript = '';
+                        let finalTranscript = '';
+
+                        for (let i = event.resultIndex; i < event.results.length; i++) {
+                            const result = event.results[i][0];
+                            this.log(`Result ${i}: "${result.transcript}" (confidence: ${result.confidence || 'N/A'}, final: ${event.results[i].isFinal})`);
+                            
+                            if (event.results[i].isFinal) {
+                                finalTranscript += result.transcript + ' ';
+                            } else {
+                                interimTranscript += result.transcript;
+                            }
+                        }
+
+                        if (finalTranscript) {
+                            transcript += finalTranscript;
+                            this.log(`📝 最終結果追加: "${finalTranscript}"`);
+                        }
+
+                        resultDiv.innerHTML = `
+                            <div class="text-green-600 mb-2">✅ 音声認識動作中</div>
+                            <div class="font-semibold">確定済み:</div>
+                            <div class="mb-2 p-2 bg-green-50 rounded">${transcript || '(まだありません)'}</div>
+                            <div class="font-semibold">認識中:</div>
+                            <div class="text-gray-600 p-2 bg-gray-50 rounded">${interimTranscript || '...'}</div>
+                        `;
+                    };
+
+                    this.recognition.onerror = (event) => {
+                        this.log(`❌ 音声認識エラー: ${event.error}`, 'error');
+                        this.log(`エラー詳細: ${JSON.stringify(event)}`, 'error');
+                        
+                        let errorMessage = '';
+                        switch(event.error) {
+                            case 'no-speech':
+                                errorMessage = '音声が検出されませんでした。マイクに向かって話してください。';
+                                break;
+                            case 'audio-capture':
+                                errorMessage = 'マイクにアクセスできません。マイクが正しく接続されているか確認してください。';
+                                break;
+                            case 'not-allowed':
+                                errorMessage = 'マイクへのアクセスが拒否されています。ブラウザの設定を確認してください。';
+                                break;
+                            case 'network':
+                                errorMessage = 'ネットワークエラーが発生しました。インターネット接続を確認してください。';
+                                break;
+                            case 'service-not-allowed':
+                                errorMessage = '音声認識サービスが利用できません。HTTPSで接続してください。';
+                                break;
+                            case 'bad-grammar':
+                                errorMessage = '音声認識の設定に問題があります。';
+                                break;
+                            case 'language-not-supported':
+                                errorMessage = '指定された言語がサポートされていません。';
+                                break;
+                            default:
+                                errorMessage = `未知のエラー: ${event.error}`;
+                        }
+                        
+                        resultDiv.innerHTML = `
+                            <div class="text-red-600 mt-2 p-3 border border-red-300 rounded">
+                                <div class="font-bold">❌ エラー: ${event.error}</div>
+                                <div class="mt-2">${errorMessage}</div>
+                            </div>
+                        `;
+                    };
+
+                    this.recognition.onend = () => {
+                        this.log('🔚 音声認識が終了しました');
+                        if (transcript.trim()) {
+                            resultDiv.innerHTML += '<div class="text-green-600 mt-2 font-semibold">✅ テスト成功！音声が正しく認識されました。</div>';
+                        } else {
+                            resultDiv.innerHTML += '<div class="text-yellow-600 mt-2">⚠️ 音声は検出されましたが、テキストとして認識されませんでした。もう一度お試しください。</div>';
+                        }
+                    };
+
+                    // 音声認識を開始
+                    this.log('🚀 音声認識を開始します...');
+                    this.recognition.start();
+                    
+                    // 10秒後に自動停止（無限に待機するのを防ぐ）
+                    setTimeout(() => {
+                        if (this.recognition && this.recognition.continuous !== false) {
+                            this.log('⏰ 10秒経過により自動停止');
+                            this.recognition.stop();
+                        }
+                    }, 10000);
+
+                } catch (error) {
+                    this.log(`💥 音声認識開始エラー: ${error.name} - ${error.message}`, 'error');
+                    this.log(`エラースタック: ${error.stack}`, 'error');
+                    resultDiv.innerHTML = `
+                        <div class="text-red-600 p-3 border border-red-300 rounded">
+                            <div class="font-bold">❌ 初期化エラー: ${error.name}</div>
+                            <div class="mt-2">${error.message}</div>
+                        </div>
+                    `;
+                }
+            }
+
+            stopSpeechRecognition() {
+                if (this.recognition) {
+                    this.recognition.stop();
+                    this.recognition = null;
+                    this.log('音声認識を停止しました');
+                }
+            }
+
+            clearLog() {
+                this.logContainer.innerHTML = '';
+                this.log('ログがクリアされました');
+            }
+        }
+
+        // デバッグツール起動
+        document.addEventListener('DOMContentLoaded', () => {
+            new DebugTool();
+        });
+    </script>
+</body>
+</html>

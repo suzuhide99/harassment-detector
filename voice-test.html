@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音声レベル＆認識テスト</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .button { padding: 12px 24px; margin: 5px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; }
+        .primary { background: #2196F3; color: white; }
+        .danger { background: #f44336; color: white; }
+        .success { background: #4CAF50; color: white; }
+        .warning { background: #FF9800; color: white; }
+        .status { padding: 15px; margin: 10px 0; border-radius: 5px; font-weight: bold; }
+        .status.info { background: #e3f2fd; color: #1976d2; }
+        .status.success { background: #e8f5e8; color: #2e7d32; }
+        .status.warning { background: #fff3e0; color: #ef6c00; }
+        .status.error { background: #ffebee; color: #c62828; }
+        
+        .volume-meter {
+            width: 100%;
+            height: 20px;
+            background: #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .volume-bar {
+            height: 100%;
+            background: linear-gradient(to right, #4CAF50, #FFEB3B, #FF9800, #f44336);
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+        
+        .transcript-area {
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            min-height: 100px;
+            margin: 10px 0;
+            font-family: monospace;
+            background: white;
+        }
+        
+        .final-text { color: #2e7d32; font-weight: bold; }
+        .interim-text { color: #666; font-style: italic; }
+        
+        .log-area {
+            background: #000;
+            color: #0f0;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .tips {
+            background: #e8f4fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .tips h4 { margin-top: 0; color: #1976d2; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 音声レベル＆認識テスト</h1>
+        
+        <div class="card">
+            <h3>1️⃣ 音声レベル確認</h3>
+            <p>まずマイクが音声を正しく拾えているか確認します</p>
+            <button id="startVolume" class="button primary">音声レベル測定開始</button>
+            <button id="stopVolume" class="button danger" disabled>測定停止</button>
+            <div id="volumeStatus" class="status info">音声レベル測定前</div>
+            <div id="volumeMeter" class="volume-meter">
+                <div id="volumeBar" class="volume-bar"></div>
+            </div>
+            <div id="volumeValue">音声レベル: 待機中</div>
+        </div>
+
+        <div class="card">
+            <h3>2️⃣ 音声認識テスト</h3>
+            <p>音声レベルが十分な場合、音声認識をテストします</p>
+            <button id="startRecognition" class="button success" disabled>音声認識開始</button>
+            <button id="stopRecognition" class="button danger" disabled>認識停止</button>
+            <div id="recognitionStatus" class="status info">音声認識前 - まず音声レベル測定を実行してください</div>
+            
+            <h4>認識結果:</h4>
+            <div id="transcriptArea" class="transcript-area">
+                音声認識結果がここに表示されます
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>🔧 詳細ログ</h3>
+            <button onclick="clearLog()" class="button warning">ログクリア</button>
+            <div id="logArea" class="log-area">
+                ログがここに表示されます...
+            </div>
+        </div>
+
+        <div class="tips">
+            <h4>💡 音声認識のコツ</h4>
+            <ul>
+                <li><strong>音声レベルが50以上</strong>になるように話してください</li>
+                <li><strong>2-3秒間継続して</strong>話してください</li>
+                <li><strong>明瞭に</strong>発音してください（「おはよう」「こんにちは」など）</li>
+                <li><strong>静かな環境</strong>でテストしてください</li>
+                <li><strong>マイクに近づきすぎない</strong>でください（30cm程度）</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        class VoiceTestTool {
+            constructor() {
+                this.audioContext = null;
+                this.analyser = null;
+                this.microphone = null;
+                this.mediaStream = null;
+                this.recognition = null;
+                
+                this.isVolumeMonitoring = false;
+                this.isRecognitionActive = false;
+                
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                document.getElementById('startVolume').onclick = () => this.startVolumeMonitoring();
+                document.getElementById('stopVolume').onclick = () => this.stopVolumeMonitoring();
+                document.getElementById('startRecognition').onclick = () => this.startSpeechRecognition();
+                document.getElementById('stopRecognition').onclick = () => this.stopSpeechRecognition();
+            }
+
+            log(message, type = 'info') {
+                const timestamp = new Date().toISOString().substring(11, 19);
+                const logArea = document.getElementById('logArea');
+                const color = type === 'error' ? '#ff4444' : type === 'success' ? '#44ff44' : '#00ff00';
+                logArea.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+                logArea.scrollTop = logArea.scrollHeight;
+                console.log(`[${type}] ${message}`);
+            }
+
+            updateStatus(elementId, message, statusClass) {
+                const element = document.getElementById(elementId);
+                element.textContent = message;
+                element.className = `status ${statusClass}`;
+            }
+
+            async startVolumeMonitoring() {
+                this.log('音声レベル監視を開始します...');
+                
+                try {
+                    // マイクアクセスを取得
+                    this.mediaStream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            echoCancellation: false,  // エコーキャンセルを無効にして生の音声を取得
+                            noiseSuppression: false,  // ノイズ抑制を無効
+                            autoGainControl: false,   // 自動ゲイン制御を無効
+                            sampleRate: 44100
+                        }
+                    });
+
+                    this.log('マイクアクセス成功', 'success');
+
+                    // AudioContext を作成
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    this.analyser = this.audioContext.createAnalyser();
+                    this.microphone = this.audioContext.createMediaStreamSource(this.mediaStream);
+                    
+                    this.analyser.fftSize = 512;
+                    this.microphone.connect(this.analyser);
+
+                    this.log(`AudioContext作成: サンプルレート ${this.audioContext.sampleRate}Hz`, 'success');
+
+                    this.isVolumeMonitoring = true;
+                    this.updateStatus('volumeStatus', '音声レベル監視中... 何か話してください', 'info');
+                    
+                    document.getElementById('startVolume').disabled = true;
+                    document.getElementById('stopVolume').disabled = false;
+
+                    // 音声レベルの監視を開始
+                    this.monitorVolume();
+
+                } catch (error) {
+                    this.log(`音声レベル監視エラー: ${error.message}`, 'error');
+                    this.updateStatus('volumeStatus', `エラー: ${error.message}`, 'error');
+                }
+            }
+
+            monitorVolume() {
+                if (!this.isVolumeMonitoring) return;
+
+                const bufferLength = this.analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                
+                this.analyser.getByteFrequencyData(dataArray);
+                
+                // 音声レベルを計算
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                    sum += dataArray[i];
+                }
+                const average = sum / bufferLength;
+                
+                // UIを更新
+                const percentage = Math.min(100, (average / 128) * 100);
+                document.getElementById('volumeBar').style.width = `${percentage}%`;
+                document.getElementById('volumeValue').textContent = `音声レベル: ${Math.round(average)} (${Math.round(percentage)}%)`;
+                
+                // 十分な音声レベルが検出された場合
+                if (average > 30) {
+                    if (!document.getElementById('startRecognition').disabled) {
+                        // すでに有効
+                    } else {
+                        this.log(`十分な音声レベルを検出: ${Math.round(average)}`, 'success');
+                        document.getElementById('startRecognition').disabled = false;
+                        this.updateStatus('recognitionStatus', '音声認識テストが可能です', 'success');
+                    }
+                }
+
+                // 継続的に監視
+                requestAnimationFrame(() => this.monitorVolume());
+            }
+
+            stopVolumeMonitoring() {
+                this.log('音声レベル監視を停止します');
+                
+                this.isVolumeMonitoring = false;
+                
+                if (this.mediaStream) {
+                    this.mediaStream.getTracks().forEach(track => track.stop());
+                }
+                
+                if (this.audioContext) {
+                    this.audioContext.close();
+                }
+
+                document.getElementById('startVolume').disabled = false;
+                document.getElementById('stopVolume').disabled = true;
+                document.getElementById('volumeBar').style.width = '0%';
+                document.getElementById('volumeValue').textContent = '音声レベル: 停止';
+                
+                this.updateStatus('volumeStatus', '音声レベル監視停止', 'warning');
+            }
+
+            async startSpeechRecognition() {
+                this.log('音声認識を開始します...');
+
+                if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                    this.log('音声認識がサポートされていません', 'error');
+                    return;
+                }
+
+                try {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    this.recognition = new SpeechRecognition();
+
+                    // より積極的な設定
+                    this.recognition.continuous = true;
+                    this.recognition.interimResults = true;
+                    this.recognition.lang = 'ja-JP';
+                    
+                    // 追加設定
+                    if ('maxAlternatives' in this.recognition) {
+                        this.recognition.maxAlternatives = 3;
+                    }
+                    
+                    // グラマーを無効にしてより柔軟に
+                    if ('grammars' in this.recognition) {
+                        this.recognition.grammars = null;
+                    }
+
+                    this.log('音声認識設定完了', 'success');
+
+                    let finalTranscript = '';
+
+                    this.recognition.onstart = () => {
+                        this.log('音声認識開始', 'success');
+                        this.isRecognitionActive = true;
+                        this.recognitionStartTime = Date.now();
+                        this.updateStatus('recognitionStatus', '音声認識中... 継続して話してください（10秒間）', 'info');
+                        document.getElementById('startRecognition').disabled = true;
+                        document.getElementById('stopRecognition').disabled = false;
+                    };
+
+                    this.recognition.onspeechstart = () => {
+                        this.log('音声検出開始', 'success');
+                    };
+
+                    this.recognition.onspeechend = () => {
+                        this.log('音声検出終了');
+                    };
+
+                    this.recognition.onresult = (event) => {
+                        this.log(`音声認識結果受信: ${event.results.length}件`);
+                        
+                        let interimTranscript = '';
+                        
+                        for (let i = event.resultIndex; i < event.results.length; i++) {
+                            const transcript = event.results[i][0].transcript;
+                            const confidence = event.results[i][0].confidence;
+                            
+                            this.log(`Result ${i}: "${transcript}" (confidence: ${confidence || 'N/A'}, final: ${event.results[i].isFinal})`);
+
+                            if (event.results[i].isFinal) {
+                                finalTranscript += transcript + ' ';
+                                this.log(`最終結果追加: "${transcript}"`, 'success');
+                            } else {
+                                interimTranscript += transcript;
+                            }
+                        }
+
+                        // 結果を表示
+                        const transcriptArea = document.getElementById('transcriptArea');
+                        transcriptArea.innerHTML = `
+                            <div class="final-text">確定: ${finalTranscript || '(まだありません)'}</div>
+                            <div class="interim-text">認識中: ${interimTranscript || '...'}</div>
+                        `;
+
+                        if (finalTranscript) {
+                            this.updateStatus('recognitionStatus', '音声認識成功！テキストが認識されました', 'success');
+                        }
+                    };
+
+                    this.recognition.onerror = (event) => {
+                        this.log(`音声認識エラー: ${event.error}`, 'error');
+                        this.updateStatus('recognitionStatus', `音声認識エラー: ${event.error}`, 'error');
+
+                        if (event.error === 'no-speech') {
+                            this.log('解決方法: もう少し長く、はっきりと話してください', 'error');
+                        }
+                    };
+
+                    this.recognition.onend = () => {
+                        this.log('音声認識セッション終了');
+                        
+                        // 継続モードで自動再開（10秒経過するまで）
+                        if (this.isRecognitionActive && (Date.now() - this.recognitionStartTime) < 10000) {
+                            this.log('継続モードで音声認識を再開します...', 'success');
+                            setTimeout(() => {
+                                try {
+                                    if (this.isRecognitionActive) {
+                                        this.recognition.start();
+                                    }
+                                } catch (error) {
+                                    this.log(`再開エラー: ${error.message}`, 'error');
+                                }
+                            }, 100);
+                        } else {
+                            // 完全終了
+                            this.isRecognitionActive = false;
+                            document.getElementById('startRecognition').disabled = false;
+                            document.getElementById('stopRecognition').disabled = true;
+                            
+                            if (finalTranscript.trim()) {
+                                this.updateStatus('recognitionStatus', '音声認識完了', 'success');
+                                this.log('✅ 音声認識テスト成功！', 'success');
+                            } else {
+                                this.updateStatus('recognitionStatus', '音声は検出されましたが、テキスト化されませんでした', 'warning');
+                                this.log('⚠️ テキスト化失敗。設定を変えて再試行してください', 'error');
+                            }
+                        }
+                    };
+
+                    // 音声認識開始
+                    this.recognition.start();
+
+                } catch (error) {
+                    this.log(`音声認識開始エラー: ${error.message}`, 'error');
+                    this.updateStatus('recognitionStatus', `エラー: ${error.message}`, 'error');
+                }
+            }
+
+            stopSpeechRecognition() {
+                if (this.recognition) {
+                    this.log('音声認識を停止します');
+                    this.recognition.stop();
+                }
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('logArea').innerHTML = 'ログがクリアされました...\n';
+        }
+
+        // 初期化
+        window.onload = () => {
+            new VoiceTestTool();
+        };
+    </script>
+</body>
+</html>

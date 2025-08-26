@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>iOS Safari 音声認識テスト</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; 
+            min-height: 100vh;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        .container { max-width: 400px; margin: 0 auto; padding: 20px; }
+        .card { 
+            background: rgba(255, 255, 255, 0.95); 
+            color: #333; 
+            padding: 25px; 
+            margin: 20px 0; 
+            border-radius: 15px; 
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .button { 
+            display: block; 
+            width: 100%;
+            background: #007AFF; 
+            color: white; 
+            padding: 20px; 
+            border: none; 
+            border-radius: 10px; 
+            font-size: 18px;
+            font-weight: 600;
+            margin: 15px 0;
+            cursor: pointer;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+        }
+        .button:active { 
+            background: #0056b3; 
+            transform: scale(0.98);
+        }
+        .button.danger { background: #FF3B30; }
+        .button.danger:active { background: #d70015; }
+        .status { 
+            padding: 15px; 
+            margin: 15px 0; 
+            border-radius: 10px; 
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.info { background: #cce7ff; color: #004085; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .transcript-box {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            min-height: 120px;
+            font-size: 16px;
+            margin: 15px 0;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🛡️ iOS Safari テスト</h1>
+            <p>iPhone Safari での音声認識をテストします</p>
+            
+            <div id="deviceInfo" class="status info">
+                デバイス情報を取得中...
+            </div>
+            
+            <button id="startBtn" class="button">
+                🎤 音声認識開始
+            </button>
+            
+            <button id="stopBtn" class="button danger" style="display: none;">
+                ⏹️ 停止
+            </button>
+            
+            <div id="status" class="status">
+                準備完了
+            </div>
+            
+            <div class="transcript-box" id="transcript">
+                音声認識結果がここに表示されます...
+            </div>
+            
+            <div id="log" style="background: #1a1a1a; color: #00ff41; font-family: monospace; font-size: 12px; padding: 15px; border-radius: 8px; max-height: 200px; overflow-y: auto; text-align: left;">
+                ログ準備完了
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class IOSVoiceTest {
+            constructor() {
+                this.recognition = null;
+                this.isListening = false;
+                this.autoRestart = false;
+                this.restartCount = 0;
+                this.init();
+            }
+
+            init() {
+                this.elements = {
+                    startBtn: document.getElementById('startBtn'),
+                    stopBtn: document.getElementById('stopBtn'),
+                    status: document.getElementById('status'),
+                    transcript: document.getElementById('transcript'),
+                    deviceInfo: document.getElementById('deviceInfo'),
+                    log: document.getElementById('log')
+                };
+
+                this.showDeviceInfo();
+                this.setupSpeechRecognition();
+                this.setupEventListeners();
+            }
+
+            showDeviceInfo() {
+                const userAgent = navigator.userAgent;
+                const isIOS = /iPad|iPhone|iPod/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
+                
+                this.elements.deviceInfo.innerHTML = `
+                    📱 iOS: ${isIOS ? '✅' : '❌'}<br>
+                    🌐 Safari: ${isSafari ? '✅' : '❌'}<br>
+                    🎤 音声認識: ${'webkitSpeechRecognition' in window ? '✅' : '❌'}
+                `;
+                
+                this.log(`Device: iOS=${isIOS}, Safari=${isSafari}, SpeechRecognition=${'webkitSpeechRecognition' in window}`);
+            }
+
+            setupSpeechRecognition() {
+                if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                    this.elements.status.innerHTML = '❌ 音声認識非対応';
+                    this.elements.status.className = 'status error';
+                    return false;
+                }
+
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                this.recognition = new SpeechRecognition();
+                
+                // iOS Safari最適化設定
+                this.recognition.continuous = false; // iOSでは連続認識無効
+                this.recognition.interimResults = true;
+                this.recognition.lang = 'ja-JP';
+                this.recognition.maxAlternatives = 1;
+
+                this.setupRecognitionHandlers();
+                this.log('Speech recognition initialized for iOS Safari');
+                return true;
+            }
+
+            setupRecognitionHandlers() {
+                this.recognition.onstart = () => {
+                    this.log('🎤 音声認識開始');
+                    this.elements.status.innerHTML = '🎤 聞き取り中...';
+                    this.elements.status.className = 'status success';
+                    this.isListening = true;
+                };
+
+                this.recognition.onend = () => {
+                    this.log('⏹️ 音声認識終了');
+                    this.isListening = false;
+                    
+                    if (this.autoRestart && this.restartCount < 50) {
+                        this.restartCount++;
+                        this.log(`🔄 自動再開 (${this.restartCount}/50)`);
+                        setTimeout(() => {
+                            try {
+                                this.recognition.start();
+                            } catch (error) {
+                                this.log(`❌ 再開失敗: ${error.message}`);
+                            }
+                        }, 1000);
+                    } else {
+                        this.elements.status.innerHTML = this.autoRestart ? '完了 (50回上限到達)' : '停止';
+                        this.elements.status.className = 'status info';
+                    }
+                };
+
+                this.recognition.onerror = (event) => {
+                    this.log(`❌ エラー: ${event.error}`);
+                    this.elements.status.innerHTML = `❌ エラー: ${event.error}`;
+                    this.elements.status.className = 'status error';
+                };
+
+                this.recognition.onresult = (event) => {
+                    let interimTranscript = '';
+                    let finalTranscript = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const result = event.results[i];
+                        const transcript = result[0].transcript;
+                        const confidence = result[0].confidence;
+
+                        if (result.isFinal) {
+                            finalTranscript += transcript;
+                            this.log(`✅ 確定: "${transcript}" (信頼度: ${confidence?.toFixed(2) || 'N/A'})`);
+                        } else {
+                            interimTranscript += transcript;
+                        }
+                    }
+
+                    this.elements.transcript.innerHTML = 
+                        (finalTranscript ? `<strong style="color: #28a745;">${finalTranscript}</strong><br>` : '') +
+                        (interimTranscript ? `<em style="color: #6c757d;">${interimTranscript}</em>` : '');
+                };
+            }
+
+            setupEventListeners() {
+                this.elements.startBtn.addEventListener('click', () => this.startListening());
+                this.elements.startBtn.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    this.startListening();
+                });
+
+                this.elements.stopBtn.addEventListener('click', () => this.stopListening());
+                this.elements.stopBtn.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    this.stopListening();
+                });
+            }
+
+            startListening() {
+                try {
+                    this.autoRestart = true;
+                    this.restartCount = 0;
+                    this.recognition.start();
+                    
+                    this.elements.startBtn.style.display = 'none';
+                    this.elements.stopBtn.style.display = 'block';
+                    this.elements.transcript.innerHTML = '音声を話してください...';
+                    
+                    this.log('🚀 連続音声認識開始 (iOS Safari モード)');
+                } catch (error) {
+                    this.log(`❌ 開始失敗: ${error.message}`);
+                    this.elements.status.innerHTML = `❌ 開始失敗: ${error.message}`;
+                    this.elements.status.className = 'status error';
+                }
+            }
+
+            stopListening() {
+                this.autoRestart = false;
+                if (this.recognition) {
+                    this.recognition.stop();
+                }
+                
+                this.elements.startBtn.style.display = 'block';
+                this.elements.stopBtn.style.display = 'none';
+                
+                this.log('⏹️ 音声認識停止');
+            }
+
+            log(message) {
+                const timestamp = new Date().toLocaleTimeString('ja-JP');
+                this.elements.log.innerHTML += `[${timestamp}] ${message}\n`;
+                this.elements.log.scrollTop = this.elements.log.scrollHeight;
+                console.log(message);
+            }
+        }
+
+        // ページ読み込み完了後に初期化
+        window.addEventListener('DOMContentLoaded', () => {
+            new IOSVoiceTest();
+        });
+    </script>
+</body>
+</html>

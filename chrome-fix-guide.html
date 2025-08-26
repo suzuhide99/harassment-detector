@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chrome設定で Network エラーを修正</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .step { background: white; padding: 20px; margin: 15px 0; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 5px solid #007bff; }
+        .step h3 { color: #007bff; margin-top: 0; }
+        .code { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 10px; font-family: monospace; margin: 10px 0; }
+        .warning { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 15px; color: #856404; margin: 15px 0; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; padding: 15px; color: #155724; margin: 15px 0; }
+        .button { display: inline-block; background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; text-decoration: none; cursor: pointer; margin: 5px; }
+        .button:hover { background: #0056b3; }
+        .button.success { background: #28a745; }
+        .button.success:hover { background: #1e7e34; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Chrome設定で Network エラーを修正</h1>
+        <p><strong>ngrok を使いたくない場合</strong>の代替手段として、Chrome の設定を変更して network エラーを解決します。</p>
+
+        <div class="warning">
+            <strong>⚠️ 注意:</strong> この方法はセキュリティ設定を変更します。テスト後は設定を元に戻すことをお勧めします。
+        </div>
+
+        <!-- Step 1 -->
+        <div class="step">
+            <h3>📋 Step 1: Chrome Flags を開く</h3>
+            <p>Chrome のアドレスバーに以下のURLを入力してアクセス:</p>
+            <div class="code">chrome://flags/</div>
+            <a href="chrome://flags/" class="button" target="_blank">Chrome Flags を開く</a>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="step">
+            <h3>🔍 Step 2: Insecure origins の設定を変更</h3>
+            <p>検索ボックスに以下を入力:</p>
+            <div class="code">Insecure origins treated as secure</div>
+            <p>見つかった設定で以下のURLを追加:</p>
+            <div class="code">http://localhost:8081</div>
+            <p><strong>状態を "Enabled" に変更してください。</strong></p>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step">
+            <h3>🔄 Step 3: Chrome を再起動</h3>
+            <p>設定を有効にするため、Chrome を完全に終了して再起動してください:</p>
+            <ol>
+                <li>すべてのChromeウィンドウを閉じる</li>
+                <li>Chrome を再起動</li>
+                <li>この手順を確認するため、以下をテスト:</li>
+            </ol>
+            <button id="testConnection" class="button success">接続テスト実行</button>
+            <div id="testResult" style="margin-top: 10px;"></div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="step">
+            <h3>🎤 Step 4: 音声認識をテスト</h3>
+            <p>設定が完了したら、パワハラ検出アプリで音声認識をテストしてください:</p>
+            <a href="index.html" class="button success" target="_blank">メインアプリでテスト</a>
+            <a href="advanced-voice-test.html" class="button" target="_blank">高度なテスト</a>
+        </div>
+
+        <!-- 追加の設定 -->
+        <div class="step">
+            <h3>⚙️ Step 5: 追加設定（必要に応じて）</h3>
+            <p>上記で解決しない場合、以下の設定も試してください:</p>
+            <div class="code">chrome://flags/</div>
+            <p>以下の設定も "Enabled" にする:</p>
+            <ul>
+                <li><strong>Experimental Web Platform features</strong></li>
+                <li><strong>Web Speech API</strong> (存在する場合)</li>
+            </ul>
+        </div>
+
+        <!-- 元に戻す方法 -->
+        <div class="step">
+            <h3>🔙 設定を元に戻す方法</h3>
+            <p>テスト完了後、セキュリティのため設定を元に戻してください:</p>
+            <ol>
+                <li><code>chrome://flags/</code> を再度開く</li>
+                <li><strong>Insecure origins treated as secure</strong> を検索</li>
+                <li>追加したURLを削除</li>
+                <li>設定を "Default" に戻す</li>
+                <li>Chrome を再起動</li>
+            </ol>
+        </div>
+
+        <div class="success">
+            <strong>✅ 成功した場合:</strong> 音声認識の network エラーが解決され、正常にテキスト化されるようになります。
+        </div>
+
+        <div class="warning">
+            <strong>🚫 この方法でも解決しない場合:</strong><br>
+            <a href="setup-https.sh" class="button" download>HTTPS セットアップスクリプト をダウンロード</a>して ngrok を使用してください。これが最も確実な解決方法です。
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('testConnection').addEventListener('click', function() {
+            const testResult = document.getElementById('testResult');
+            
+            // 接続テスト
+            testResult.innerHTML = '<p>🔄 テスト中...</p>';
+            
+            // 現在の接続情報をチェック
+            const protocol = window.location.protocol;
+            const hostname = window.location.hostname;
+            const port = window.location.port;
+            
+            if (protocol === 'https:') {
+                testResult.innerHTML = `
+                    <div class="success">
+                        ✅ <strong>HTTPS接続です</strong><br>
+                        Network エラーは発生しません。
+                    </div>
+                `;
+            } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                // Web Speech API が利用可能かテスト
+                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                    testResult.innerHTML = `
+                        <div class="success">
+                            ✅ <strong>音声認識APIが利用可能です</strong><br>
+                            設定: ${protocol}//${hostname}:${port}<br>
+                            Chrome設定が正しく適用されています。
+                        </div>
+                    `;
+                } else {
+                    testResult.innerHTML = `
+                        <div class="warning">
+                            ⚠️ <strong>音声認識APIが利用できません</strong><br>
+                            Chrome の再起動が必要かもしれません。
+                        </div>
+                    `;
+                }
+            } else {
+                testResult.innerHTML = `
+                    <div class="warning">
+                        ⚠️ <strong>localhost 以外の接続です</strong><br>
+                        この設定方法は localhost でのみ有効です。
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

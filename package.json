@@ -1,0 +1,41 @@
+{
+  "name": "harassment-detector",
+  "version": "1.0.0",
+  "description": "リアルタイム音声監視でワークプレース・ハラスメントを検出するWebアプリケーション",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "serve": "npx serve .",
+    "dev": "python -m http.server 8080",
+    "build": "echo 'No build step required for this project'",
+    "test": "echo 'Tests will be added in future versions'"
+  },
+  "keywords": [
+    "harassment",
+    "detection",
+    "speech",
+    "recognition",
+    "workplace",
+    "safety",
+    "japanese",
+    "realtime"
+  ],
+  "author": "Claude Code Assistant",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "local"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "browserslist": [
+    "last 2 Chrome versions",
+    "last 2 Firefox versions",
+    "last 2 Safari versions",
+    "last 2 Edge versions"
+  ],
+  "dependencies": {},
+  "devDependencies": {},
+  "homepage": "./index.html"
+}

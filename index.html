@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Guardian">
+    <meta name="theme-color" content="#3b82f6">
+    <title>パワハラ検出アプリ - Guardian</title>
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto p-4 max-w-4xl">
+        <!-- ヘッダー -->
+        <div class="bg-white rounded-lg shadow p-6 mb-4">
+            <h1 class="text-3xl font-bold mb-2 flex items-center">
+                🛡️ Guardian 
+                <span class="text-lg font-normal text-gray-600 ml-2">- パワハラ検出システム</span>
+            </h1>
+            <p class="text-gray-600">リアルタイム音声監視でワークプレース・ハラスメントを検出します</p>
+        </div>
+
+        <!-- モニタリング状態表示 -->
+        <div id="status" class="bg-white rounded-lg shadow p-6 mb-4">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold">監視状態</h2>
+                <div id="statusIndicator" class="w-4 h-4 rounded-full bg-gray-400"></div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="startBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors">
+                    モニタリング開始
+                </button>
+                <button id="stopBtn" class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg transition-colors hidden">
+                    停止
+                </button>
+                <span id="statusText" class="text-gray-600 font-medium">
+                    停止中
+                </span>
+            </div>
+            <div id="microphoneError" class="hidden mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                マイクへのアクセスが許可されていません。ブラウザの設定を確認してください。
+            </div>
+        </div>
+
+        <!-- リアルタイム文字起こし -->
+        <div class="bg-white rounded-lg shadow p-6 mb-4">
+            <h2 class="text-lg font-semibold mb-3 flex items-center">
+                🎤 会話内容
+                <span id="listeningIndicator" class="ml-2 text-sm text-gray-500 hidden">聞き取り中...</span>
+            </h2>
+            <div id="transcript" class="h-40 overflow-y-auto border border-gray-200 p-3 bg-gray-50 rounded text-sm">
+                <div class="text-gray-500 italic">音声認識を開始すると、ここにリアルタイムで文字起こしが表示されます</div>
+            </div>
+        </div>
+
+        <!-- アラート表示エリア -->
+        <div id="alertArea" class="mb-4">
+            <!-- 動的に生成 -->
+        </div>
+
+        <!-- 検出履歴 -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-lg font-semibold mb-3 flex items-center justify-between">
+                📊 検出履歴
+                <button id="clearHistory" class="text-sm text-red-600 hover:text-red-800 transition-colors">
+                    履歴をクリア
+                </button>
+            </h2>
+            <div id="history" class="space-y-3">
+                <div class="text-gray-500 italic text-sm">検出された問題のある発言がここに表示されます</div>
+            </div>
+        </div>
+
+        <!-- 統計情報 -->
+        <div class="bg-white rounded-lg shadow p-6 mt-4">
+            <h2 class="text-lg font-semibold mb-3">📈 統計情報</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center">
+                    <div id="totalDetections" class="text-2xl font-bold text-red-600">0</div>
+                    <div class="text-sm text-gray-600">総検出数</div>
+                </div>
+                <div class="text-center">
+                    <div id="todayDetections" class="text-2xl font-bold text-orange-600">0</div>
+                    <div class="text-sm text-gray-600">今日の検出数</div>
+                </div>
+                <div class="text-center">
+                    <div id="highestScore" class="text-2xl font-bold text-purple-600">0</div>
+                    <div class="text-sm text-gray-600">最高スコア</div>
+                </div>
+                <div class="text-center">
+                    <div id="monitoringTime" class="text-2xl font-bold text-blue-600">0</div>
+                    <div class="text-sm text-gray-600">監視時間(分)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- デバッグとヘルプ -->
+        <div class="bg-gray-50 rounded-lg p-4 mt-4 text-center">
+            <div class="text-sm text-gray-600 mb-2">🔧 音声認識がうまく動作しない場合:</div>
+            
+            <!-- 音声認識ヘルプ -->
+            <div class="mb-3 p-3 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                <div class="text-sm text-blue-700 mb-2"><strong>💡 音声認識がうまく動作しない場合:</strong></div>
+                <div class="text-sm text-blue-600">
+                    • マイクアクセス許可を確認<br>
+                    • Chrome/Safari/Edgeの最新版を使用<br>
+                    • HTTPSサイト（このサイト）での使用推奨
+                </div>
+            </div>
+            
+            <!-- 特別推奨 -->
+            <div class="mb-3">
+                <a href="advanced-voice-test.html" target="_blank" class="inline-block bg-purple-600 text-white px-4 py-3 rounded-lg text-base font-bold hover:bg-purple-700 transition-colors animate-pulse">
+                    🎯 高度なテスト（音声検出されるがテキスト化されない問題用）
+                </a>
+            </div>
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                <a href="voice-test.html" target="_blank" class="bg-orange-600 text-white px-3 py-2 rounded text-sm hover:bg-orange-700 transition-colors">
+                    🎤 音声レベルテスト
+                </a>
+                <a href="simple-test.html" target="_blank" class="bg-purple-600 text-white px-3 py-2 rounded text-sm hover:bg-purple-700 transition-colors">
+                    📋 ステップテスト
+                </a>
+                <a href="debug.html" target="_blank" class="bg-gray-600 text-white px-3 py-2 rounded text-sm hover:bg-gray-700 transition-colors">
+                    🔧 詳細デバッグ
+                </a>
+                <button onclick="runDemo()" class="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors">
+                    🧪 デモテスト
+                </button>
+            </div>
+            <div class="space-x-2">
+                <button onclick="window.location.reload()" class="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700 transition-colors">
+                    🔄 ページ再読み込み
+                </button>
+                <button onclick="localStorage.clear(); window.location.reload()" class="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700 transition-colors">
+                    🗑️ データリセット
+                </button>
+            </div>
+            <div class="text-xs text-gray-500 mt-2">
+                <strong>推奨:</strong> まず「🎤 音声レベルテスト」で音声が検出されるか確認してください
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="src/detector.js"></script>
+    <script src="src/ui.js"></script>
+    <script>
+        function startHttpsSetup() {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                background: rgba(0,0,0,0.8); z-index: 1000; display: flex; 
+                align-items: center; justify-content: center; padding: 20px;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 15px; max-width: 600px; max-height: 80vh; overflow-y: auto;">
+                    <h3 style="margin-top: 0; color: #dc3545;">🔒 HTTPS 自動設定</h3>
+                    <p><strong>Network エラーを完全に解決するため、HTTPS接続を設定します。</strong></p>
+                    
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                        <h4 style="margin-top: 0;">📋 実行する手順:</h4>
+                        <ol>
+                            <li><strong>ngrok をインストール</strong> (未インストールの場合)</li>
+                            <li><strong>HTTPS接続を作成</strong></li>
+                            <li><strong>新しいURLでアプリを開く</strong></li>
+                        </ol>
+                    </div>
+                    
+                    <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0; color: #856404;">
+                        <strong>⚠️ 注意:</strong> ターミナル/コマンドプロンプトが開きます。手順に従って実行してください。
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 20px;">
+                        <button onclick="downloadSetupScript()" style="background: #28a745; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; margin: 5px; cursor: pointer;">
+                            📥 セットアップスクリプトをダウンロード
+                        </button>
+                        <button onclick="showManualSteps()" style="background: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; margin: 5px; cursor: pointer;">
+                            📋 手動手順を表示
+                        </button>
+                        <button onclick="closeModal()" style="background: #6c757d; color: white; border: none; padding: 12px 24px; border-radius: 6px; margin: 5px; cursor: pointer;">
+                            閉じる
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            window.closeModal = () => modal.remove();
+            window.downloadSetupScript = () => {
+                const link = document.createElement('a');
+                link.href = 'setup-https.sh';
+                link.download = 'setup-https.sh';
+                link.click();
+                
+                setTimeout(() => {
+                    alert('ダウンロードしたスクリプトを実行してください:\\n\\n1. ターミナルを開く\\n2. cd /Users/suzu/cc-test/harassment-detector\\n3. ./setup-https.sh\\n\\nまたは、ダブルクリックで実行できます。');
+                }, 500);
+            };
+            
+            window.showManualSteps = () => {
+                const content = modal.querySelector('div > div');
+                content.innerHTML = `
+                    <h3 style="margin-top: 0; color: #dc3545;">📋 手動セットアップ手順</h3>
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; font-family: monospace; white-space: pre-wrap;">
+# 1. ターミナルを開いて以下を実行:
+
+cd /Users/suzu/cc-test/harassment-detector
+
+# 2. ngrok をインストール (未インストールの場合):
+brew install ngrok
+
+# 3. サーバーを起動:
+python3 -m http.server 8081 &
+
+# 4. ngrok でHTTPS接続を作成:
+ngrok http 8081
+
+# 5. 表示されるHTTPS URL (例: https://abc123.ngrok.io) でアクセス
+                    </div>
+                    <div style="text-align: center; margin-top: 20px;">
+                        <button onclick="closeModal()" style="background: #6c757d; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer;">
+                            閉じる
+                        </button>
+                    </div>
+                `;
+            };
+        }
+    </script>
+</body>
+</html>

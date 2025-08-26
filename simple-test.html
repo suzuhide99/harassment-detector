@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>シンプル音声認識テスト</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+        .warning { background: #fff3e0; color: #ef6c00; }
+        .info { background: #e3f2fd; color: #1976d2; }
+        button { padding: 10px 15px; margin: 5px; font-size: 16px; }
+        #transcript { border: 1px solid #ccc; padding: 15px; min-height: 100px; margin: 10px 0; }
+        .log { background: #f5f5f5; padding: 10px; margin: 10px 0; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🎤 シンプル音声認識テスト</h1>
+    
+    <div id="browser-info" class="status info">
+        ブラウザ情報を確認中...
+    </div>
+
+    <div>
+        <button id="step1" onclick="step1()">Step 1: ブラウザサポート確認</button>
+        <button id="step2" onclick="step2()" disabled>Step 2: マイク権限取得</button>
+        <button id="step3" onclick="step3()" disabled>Step 3: 基本音声認識テスト</button>
+        <button id="step4" onclick="step4()" disabled>Step 4: 継続音声認識テスト</button>
+        <button onclick="clearAll()">クリア</button>
+    </div>
+
+    <div id="status" class="status">
+        テスト開始前
+    </div>
+
+    <div id="transcript">
+        音声認識結果がここに表示されます
+    </div>
+
+    <div class="log" id="log">
+        <div>ログがここに表示されます</div>
+    </div>
+
+    <script>
+        let recognition = null;
+        let currentStep = 0;
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toISOString().substring(11, 19);
+            const logEl = document.getElementById('log');
+            const div = document.createElement('div');
+            div.innerHTML = `[${timestamp}] ${type.toUpperCase()}: ${message}`;
+            div.style.color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'black';
+            logEl.appendChild(div);
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(`[${type}] ${message}`);
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        function clearAll() {
+            document.getElementById('log').innerHTML = '<div>ログがクリアされました</div>';
+            document.getElementById('transcript').innerHTML = '音声認識結果がここに表示されます';
+            updateStatus('クリアしました');
+            if (recognition) {
+                recognition.stop();
+                recognition = null;
+            }
+        }
+
+        // ブラウザ情報を表示
+        function showBrowserInfo() {
+            const info = {
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                platform: navigator.platform,
+                cookieEnabled: navigator.cookieEnabled,
+                onLine: navigator.onLine,
+                protocol: location.protocol,
+                hostname: location.hostname
+            };
+            
+            document.getElementById('browser-info').innerHTML = 
+                `ブラウザ: ${navigator.userAgent}<br>` +
+                `言語: ${navigator.language}<br>` +
+                `プラットフォーム: ${navigator.platform}<br>` +
+                `プロトコル: ${location.protocol}<br>` +
+                `ホスト: ${location.hostname}`;
+        }
+
+        function step1() {
+            log('=== Step 1: ブラウザサポート確認 ===');
+            
+            // Speech Recognition
+            const hasSpeechRecognition = 'SpeechRecognition' in window;
+            const hasWebkitSpeechRecognition = 'webkitSpeechRecognition' in window;
+            
+            log(`SpeechRecognition: ${hasSpeechRecognition ? '✓' : '✗'}`);
+            log(`webkitSpeechRecognition: ${hasWebkitSpeechRecognition ? '✓' : '✗'}`);
+            
+            // Media Devices
+            const hasMediaDevices = 'mediaDevices' in navigator;
+            const hasGetUserMedia = hasMediaDevices && 'getUserMedia' in navigator.mediaDevices;
+            
+            log(`MediaDevices: ${hasMediaDevices ? '✓' : '✗'}`);
+            log(`getUserMedia: ${hasGetUserMedia ? '✓' : '✗'}`);
+
+            // HTTPS check
+            const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            log(`Secure context: ${isSecure ? '✓' : '✗'}`);
+
+            if ((hasSpeechRecognition || hasWebkitSpeechRecognition) && hasGetUserMedia) {
+                updateStatus('Step 1 完了: ブラウザサポートOK', 'success');
+                document.getElementById('step2').disabled = false;
+                currentStep = 1;
+                log('Step 1 成功: 次のステップに進んでください', 'success');
+            } else {
+                updateStatus('Step 1 失敗: ブラウザが対応していません', 'error');
+                log('Step 1 失敗: このブラウザでは音声認識が使用できません', 'error');
+            }
+        }
+
+        async function step2() {
+            log('=== Step 2: マイク権限取得 ===');
+            updateStatus('マイク権限を取得中...', 'warning');
+
+            try {
+                log('getUserMedia を呼び出し中...');
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 16000
+                    }
+                });
+
+                log(`マイクアクセス成功`);
+                log(`オーディオトラック数: ${stream.getAudioTracks().length}`);
+                
+                stream.getAudioTracks().forEach((track, i) => {
+                    log(`Track ${i}: ${track.label} (${track.kind})`);
+                });
+
+                // すぐにストリームを停止
+                stream.getTracks().forEach(track => track.stop());
+                log('テスト用ストリームを停止');
+
+                updateStatus('Step 2 完了: マイク権限取得OK', 'success');
+                document.getElementById('step3').disabled = false;
+                currentStep = 2;
+                log('Step 2 成功: 次のステップに進んでください', 'success');
+
+            } catch (error) {
+                log(`マイクアクセスエラー: ${error.name} - ${error.message}`, 'error');
+                updateStatus(`Step 2 失敗: ${error.message}`, 'error');
+                
+                // エラー詳細をログに出力
+                if (error.name === 'NotAllowedError') {
+                    log('解決方法: ブラウザのマイク許可設定を確認してください', 'error');
+                } else if (error.name === 'NotFoundError') {
+                    log('解決方法: マイクが接続されているか確認してください', 'error');
+                } else if (error.name === 'NotReadableError') {
+                    log('解決方法: 他のアプリがマイクを使用していないか確認してください', 'error');
+                }
+            }
+        }
+
+        function step3() {
+            log('=== Step 3: 基本音声認識テスト ===');
+            updateStatus('音声認識を初期化中...', 'warning');
+
+            try {
+                // SpeechRecognition を作成
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+
+                // 基本設定（まずはシンプルに）
+                recognition.continuous = false;  // 一度だけ
+                recognition.interimResults = true;  // 中間結果も表示（デバッグ用）
+                recognition.lang = 'ja-JP';
+
+                log('SpeechRecognition インスタンス作成成功');
+                log(`continuous: ${recognition.continuous}`);
+                log(`interimResults: ${recognition.interimResults}`);
+                log(`lang: ${recognition.lang}`);
+
+                let hasReceivedAnyResult = false;
+                let finalResult = '';
+
+                // イベントハンドラー設定
+                recognition.onstart = () => {
+                    log('✅ 音声認識開始', 'success');
+                    updateStatus('音声認識中... はっきりと3-5秒間話してください（例：「おはようございます」）', 'info');
+                };
+
+                recognition.onspeechstart = () => {
+                    log('🎤 音声検出開始', 'success');
+                };
+
+                recognition.onspeechend = () => {
+                    log('🔇 音声検出終了');
+                };
+
+                recognition.onsoundstart = () => {
+                    log('🔊 サウンド検出開始');
+                };
+
+                recognition.onsoundend = () => {
+                    log('🔇 サウンド検出終了');
+                };
+
+                recognition.onresult = (event) => {
+                    hasReceivedAnyResult = true;
+                    log(`📝 結果受信: ${event.results.length} results`);
+                    
+                    let interimTranscript = '';
+                    let finalTranscript = '';
+                    
+                    for (let i = 0; i < event.results.length; i++) {
+                        const result = event.results[i][0];
+                        const confidence = result.confidence || 'N/A';
+                        log(`Result ${i}: "${result.transcript}" (confidence: ${confidence}, final: ${event.results[i].isFinal})`);
+                        
+                        if (event.results[i].isFinal) {
+                            finalTranscript += result.transcript + ' ';
+                            finalResult = finalTranscript.trim();
+                        } else {
+                            interimTranscript += result.transcript;
+                        }
+                    }
+                    
+                    // リアルタイム表示
+                    document.getElementById('transcript').innerHTML = 
+                        `<div><strong>確定:</strong> ${finalTranscript || '(まだありません)'}</div>` +
+                        `<div><em>認識中:</em> ${interimTranscript || '...'}</div>`;
+                };
+
+                recognition.onerror = (event) => {
+                    log(`❌ 音声認識エラー: ${event.error}`, 'error');
+                    
+                    let errorExplanation = '';
+                    switch(event.error) {
+                        case 'no-speech':
+                            errorExplanation = '音声が検出されませんでした。マイクに近づいて、もう少し大きな声で話してください。';
+                            break;
+                        case 'audio-capture':
+                            errorExplanation = 'マイクにアクセスできません。マイクが正しく接続されているか確認してください。';
+                            break;
+                        case 'not-allowed':
+                            errorExplanation = 'マイクへのアクセスが拒否されています。ブラウザの設定を確認してください。';
+                            break;
+                        case 'network':
+                            errorExplanation = 'ネットワークエラーが発生しました。インターネット接続を確認してください。';
+                            break;
+                        case 'service-not-allowed':
+                            errorExplanation = '音声認識サービスが利用できません。HTTPSで接続してください。';
+                            break;
+                        default:
+                            errorExplanation = `未知のエラーです: ${event.error}`;
+                    }
+                    
+                    log(`説明: ${errorExplanation}`, 'error');
+                    updateStatus(`音声認識エラー: ${event.error} - ${errorExplanation}`, 'error');
+                };
+
+                recognition.onend = () => {
+                    log('🔚 音声認識終了');
+                    
+                    if (finalResult.trim()) {
+                        log(`✅ Step 3 成功！認識されたテキスト: "${finalResult}"`, 'success');
+                        updateStatus('Step 3 完了: 基本音声認識テスト成功', 'success');
+                        document.getElementById('step4').disabled = false;
+                        currentStep = 3;
+                        document.getElementById('transcript').innerHTML += 
+                            `<div style="color: green; font-weight: bold;">✅ 成功！ "${finalResult}" が認識されました</div>`;
+                    } else if (hasReceivedAnyResult) {
+                        log('⚠️ 音声は検出されましたが、最終的なテキスト化はされませんでした', 'warning');
+                        updateStatus('Step 3 部分成功: 音声は検出されましたが、テキスト化に失敗', 'warning');
+                        document.getElementById('step4').disabled = false; // 次のステップは試せるようにする
+                        currentStep = 3;
+                    } else {
+                        log('❌ Step 3 失敗: 音声が全く検出されませんでした', 'error');
+                        updateStatus('Step 3 失敗: 音声が検出されませんでした。マイクの確認をしてください', 'error');
+                    }
+                };
+
+                // 音声認識開始
+                log('🚀 音声認識を開始します...');
+                log('💡 ヒント: マイクに向かって「おはようございます」や「こんにちは」などをはっきりと話してください');
+                recognition.start();
+
+                // 15秒後にタイムアウト（デバッグ用）
+                setTimeout(() => {
+                    if (recognition && currentStep === 3) {
+                        log('⏰ 15秒タイムアウト - 音声認識を停止します');
+                        recognition.stop();
+                    }
+                }, 15000);
+
+            } catch (error) {
+                log(`💥 Step 3 初期化エラー: ${error.message}`, 'error');
+                updateStatus(`Step 3 失敗: ${error.message}`, 'error');
+            }
+        }
+
+        function step4() {
+            log('=== Step 4: 継続音声認識テスト ===');
+            updateStatus('継続音声認識を開始中...', 'warning');
+
+            try {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+
+                // 継続設定
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = 'ja-JP';
+
+                log('継続音声認識設定完了');
+
+                recognition.onstart = () => {
+                    log('継続音声認識開始', 'success');
+                    updateStatus('継続音声認識中... 複数回話してください (10秒で自動停止)', 'info');
+                };
+
+                recognition.onresult = (event) => {
+                    let interim = '';
+                    let final = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            final += transcript + ' ';
+                        } else {
+                            interim += transcript;
+                        }
+                    }
+
+                    document.getElementById('transcript').innerHTML = 
+                        `<div><strong>確定:</strong> ${final}</div>` +
+                        `<div><em>認識中:</em> ${interim}</div>`;
+
+                    if (final) {
+                        log(`最終結果: "${final}"`, 'success');
+                    }
+                };
+
+                recognition.onerror = (event) => {
+                    log(`継続音声認識エラー: ${event.error}`, 'error');
+                };
+
+                recognition.onend = () => {
+                    log('継続音声認識終了');
+                    updateStatus('Step 4 完了: 全テスト終了', 'success');
+                };
+
+                recognition.start();
+
+                // 10秒で自動停止
+                setTimeout(() => {
+                    if (recognition) {
+                        recognition.stop();
+                        log('10秒経過により自動停止');
+                    }
+                }, 10000);
+
+            } catch (error) {
+                log(`Step 4 エラー: ${error.message}`, 'error');
+                updateStatus(`Step 4 失敗: ${error.message}`, 'error');
+            }
+        }
+
+        // 初期化
+        window.onload = () => {
+            showBrowserInfo();
+            log('シンプルテストページが読み込まれました');
+        };
+    </script>
+</body>
+</html>

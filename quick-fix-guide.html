@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network エラー - 即座に解決する方法</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; min-height: 100vh; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .card { background: rgba(255, 255, 255, 0.95); color: #333; padding: 25px; margin: 20px 0; border-radius: 15px; box-shadow: 0 8px 16px rgba(0,0,0,0.2); }
+        .urgent { background: linear-gradient(45deg, #ff6b6b, #ee5a24); color: white; text-align: center; font-size: 20px; font-weight: bold; padding: 20px; border-radius: 10px; margin-bottom: 20px; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        .step { border-left: 5px solid #007bff; margin: 20px 0; }
+        .step h3 { color: #007bff; margin-top: 0; }
+        .code { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 15px; font-family: 'Courier New', monospace; margin: 10px 0; white-space: pre-wrap; }
+        .button { display: inline-block; background: #007bff; color: white; padding: 12px 20px; border: none; border-radius: 6px; text-decoration: none; cursor: pointer; margin: 5px; font-weight: bold; transition: all 0.3s; }
+        .button:hover { background: #0056b3; transform: translateY(-2px); }
+        .button.success { background: #28a745; }
+        .button.success:hover { background: #1e7e34; }
+        .button.danger { background: #dc3545; }
+        .button.danger:hover { background: #c82333; }
+        .success-box { background: #d4edda; border: 2px solid #28a745; border-radius: 8px; padding: 20px; color: #155724; margin: 15px 0; }
+        .warning-box { background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 20px; color: #856404; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="urgent">
+            🚨 NETWORK エラー即座解決ガイド 🚨
+        </div>
+
+        <div class="card">
+            <h1>🎯 最も簡単な解決方法</h1>
+            <p><strong>ngrok認証が面倒な場合の代替手段</strong></p>
+            <div class="success-box">
+                <h3>✅ Chrome設定変更（1分で完了）</h3>
+                <p>認証不要で今すぐ解決できます！</p>
+            </div>
+        </div>
+
+        <!-- 簡単な方法 -->
+        <div class="card step">
+            <h3>🔧 Step 1: Chrome Flags を開く</h3>
+            <p><strong>新しいタブで</strong>以下のURLを開いてください：</p>
+            <div class="code">chrome://flags/</div>
+            <a href="chrome://flags/" target="_blank" class="button success">🚀 Chrome Flags を開く</a>
+        </div>
+
+        <div class="card step">
+            <h3>🔍 Step 2: 設定を検索</h3>
+            <p>検索ボックスに以下を<strong>正確に</strong>入力：</p>
+            <div class="code">Insecure origins treated as secure</div>
+            <div class="warning-box">
+                <strong>⚠️ 重要:</strong> 検索結果で「<strong>Insecure origins treated as secure</strong>」という項目を見つけてください。
+            </div>
+        </div>
+
+        <div class="card step">
+            <h3>⚙️ Step 3: 設定を変更</h3>
+            <ol>
+                <li><strong>「Insecure origins treated as secure」</strong> の横にある <strong>「Disabled」</strong> をクリック</li>
+                <li><strong>「Enabled」</strong> を選択</li>
+                <li>下に表示される <strong>テキストボックス</strong> に以下を入力:</li>
+            </ol>
+            <div class="code">http://localhost:8082</div>
+            <div class="success-box">
+                <strong>✅ 正しく設定されました！</strong> 次のステップに進んでください。
+            </div>
+        </div>
+
+        <div class="card step">
+            <h3>🔄 Step 4: Chrome を再起動</h3>
+            <p><strong>Chrome を完全に終了してから再起動してください：</strong></p>
+            <ol>
+                <li>すべてのChromeウィンドウを閉じる</li>
+                <li>Chrome を再起動</li>
+                <li>以下のURLを開く:</li>
+            </ol>
+            <div class="code">http://localhost:8082</div>
+            <a href="http://localhost:8082" target="_blank" class="button success">🎤 アプリを開く</a>
+        </div>
+
+        <div class="card step">
+            <h3>🎯 Step 5: 音声認識をテスト</h3>
+            <p>アプリが開いたら、以下をテストしてください：</p>
+            <div style="text-align: center;">
+                <a href="http://localhost:8082/advanced-voice-test.html" target="_blank" class="button danger" style="font-size: 18px; padding: 15px 30px;">
+                    🚀 高度なテスト を実行
+                </a>
+            </div>
+            <div class="success-box">
+                <strong>✅ 成功する場合:</strong> Network エラーが解決され、音声認識が正常に動作します！
+            </div>
+        </div>
+
+        <!-- 代替案 -->
+        <div class="card">
+            <h3>🔄 それでも解決しない場合</h3>
+            <div class="warning-box">
+                <h4>📋 ngrok認証を行う場合</h4>
+                <ol>
+                    <li><a href="https://dashboard.ngrok.com/signup" target="_blank">ngrok アカウントを作成</a> (無料)</li>
+                    <li><a href="https://dashboard.ngrok.com/get-started/your-authtoken" target="_blank">Authtoken を取得</a></li>
+                    <li>ターミナルで実行: <code>./ngrok config add-authtoken [YOUR_TOKEN]</code></li>
+                    <li>その後: <code>./ngrok http 8082</code></li>
+                </ol>
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="https://dashboard.ngrok.com/signup" target="_blank" class="button">ngrok アカウント作成</a>
+            </div>
+        </div>
+
+        <!-- 現在の状況 -->
+        <div class="card">
+            <h3>📊 現在の状況</h3>
+            <div id="status-info" style="font-family: monospace; background: #f8f9fa; padding: 15px; border-radius: 8px; color: #333;"></div>
+            <button onclick="checkStatus()" class="button">🔄 状況を更新</button>
+        </div>
+
+        <!-- 成功後の案内 -->
+        <div class="card">
+            <div class="success-box">
+                <h3>🎉 成功した場合の次のステップ</h3>
+                <ol>
+                    <li><strong>高度なテスト</strong>で音声認識をテスト</li>
+                    <li><strong>継続して話す</strong>（20秒間）</li>
+                    <li><strong>統計情報</strong>で認識結果を確認</li>
+                    <li><strong>メインアプリ</strong>でパワハラ検出をテスト</li>
+                </ol>
+                <div style="text-align: center; margin-top: 15px;">
+                    <a href="http://localhost:8082" class="button success" target="_blank">🏠 メインアプリを開く</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function checkStatus() {
+            const statusInfo = document.getElementById('status-info');
+            const currentProtocol = window.location.protocol;
+            const currentHost = window.location.host;
+            
+            statusInfo.innerHTML = `
+現在のURL: ${window.location.href}
+プロトコル: ${currentProtocol}
+ホスト: ${currentHost}
+時刻: ${new Date().toLocaleString('ja-JP')}
+
+サーバー状況:
+✅ ローカルサーバー: http://localhost:8082
+${currentProtocol === 'https:' ? '✅' : '⚠️'} HTTPS接続: ${currentProtocol === 'https:' ? '有効' : '無効 (Chrome設定が必要)'}
+
+次のステップ:
+${currentProtocol === 'https:' ? '🎉 HTTPS接続完了 - 音声認識テストを実行してください' : '🔧 Chrome設定でlocalhost:8082を安全な接続として設定してください'}
+            `;
+        }
+        
+        // ページ読み込み時に状況をチェック
+        window.onload = checkStatus;
+    </script>
+</body>
+</html>
