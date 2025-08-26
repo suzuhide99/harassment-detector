@@ -161,6 +161,10 @@ class HarassmentDetector {
         this.totalMonitoringTime = parseInt(localStorage.getItem('totalMonitoringTime') || '0');
         this.currentTranscript = '';
         
+        // カード表示状態管理
+        this.currentCard = null; // 現在表示中のカード情報
+        this.cardDisplayTime = null; // カード表示開始時間
+        
         // 統計情報の初期化
         this.updateStatistics();
     }
@@ -457,10 +461,10 @@ class HarassmentDetector {
         // カードシステムでの判定（閾値をさらに下げる）
         if (totalScore >= 8) {
             // レッドカード - 重大なパワハラ
-            this.triggerAlert(text, detectedPatterns, totalScore, 'RED_CARD');
+            this.handleCardAlert(text, detectedPatterns, totalScore, 'RED_CARD');
         } else if (totalScore >= 2) {
             // イエローカード - 軽微だが問題のある発言（超厳格）
-            this.triggerAlert(text, detectedPatterns, totalScore, 'YELLOW_CARD');
+            this.handleCardAlert(text, detectedPatterns, totalScore, 'YELLOW_CARD');
         }
 
         // 低スコアでも疑わしいものはログ出力
@@ -501,6 +505,119 @@ class HarassmentDetector {
         return false;
     }
 
+    handleCardAlert(text, patterns, score, cardType) {
+        // カード表示中のバックグラウンド更新ロジック
+        if (this.currentCard) {
+            // 既にカードが表示中の場合
+            const shouldUpdate = this.shouldUpdateCard(cardType, score);
+            if (shouldUpdate) {
+                console.log(`🔄 カード更新: ${this.currentCard.cardType} → ${cardType} (${this.currentCard.score} → ${score})`);
+                this.updateExistingCard(text, patterns, score, cardType);
+                return;
+            } else {
+                // 更新しない場合でも履歴には残す
+                console.log(`📝 バックグラウンド検出 (更新なし): ${cardType} - ${score}点`);
+                this.addToHistoryOnly(text, patterns, score, cardType);
+                return;
+            }
+        }
+        
+        // 新しいカード表示
+        this.triggerAlert(text, patterns, score, cardType);
+    }
+
+    shouldUpdateCard(newCardType, newScore) {
+        // カード更新判定ルール
+        const currentCardType = this.currentCard.cardType;
+        const currentScore = this.currentCard.score;
+        
+        // ルール1: イエロー → レッドは常に更新
+        if (currentCardType === 'YELLOW_CARD' && newCardType === 'RED_CARD') {
+            return true;
+        }
+        
+        // ルール2: レッド → イエローは更新しない
+        if (currentCardType === 'RED_CARD' && newCardType === 'YELLOW_CARD') {
+            return false;
+        }
+        
+        // ルール3: 同じカード種別でスコアが高い場合のみ更新
+        if (currentCardType === newCardType && newScore > currentScore) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    updateExistingCard(text, patterns, score, cardType) {
+        // 既存カードを更新
+        const incident = {
+            timestamp: new Date().toISOString(),
+            text,
+            patterns,
+            score,
+            id: Date.now(),
+            cardType,
+            severity: this.getSeverity(score, cardType),
+            isUpdate: true // 更新フラグ
+        };
+
+        // 現在のカード情報を更新
+        this.currentCard = incident;
+        
+        // 履歴に追加
+        this.detectionHistory.unshift(incident);
+        if (this.detectionHistory.length > 100) {
+            this.detectionHistory = this.detectionHistory.slice(0, 100);
+        }
+        this.saveToLocalStorage();
+
+        // カード表示を更新
+        this.updateCardDisplay(incident);
+        
+        // UI更新
+        this.showAlert(incident);
+        this.updateHistory();
+        this.updateStatistics();
+        
+        // 音声アラート（更新時は短めに）
+        if (cardType === 'RED_CARD') {
+            this.playUpdateSound(true);
+        } else {
+            this.playUpdateSound(false);
+        }
+
+        console.log('Card updated:', incident);
+    }
+
+    addToHistoryOnly(text, patterns, score, cardType) {
+        // 履歴にのみ追加（カード表示は更新しない）
+        const incident = {
+            timestamp: new Date().toISOString(),
+            text,
+            patterns,
+            score,
+            id: Date.now(),
+            cardType,
+            severity: this.getSeverity(score, cardType),
+            backgroundDetection: true // バックグラウンド検出フラグ
+        };
+
+        // 履歴に追加
+        this.detectionHistory.unshift(incident);
+        if (this.detectionHistory.length > 100) {
+            this.detectionHistory = this.detectionHistory.slice(0, 100);
+        }
+        this.saveToLocalStorage();
+
+        // UI更新
+        this.showAlert(incident);
+        this.updateHistory();
+        this.updateStatistics();
+        
+        console.log('Background detection added to history only:', incident);
+    }
+
     triggerAlert(text, patterns, score, cardType = 'YELLOW_CARD') {
         const incident = {
             timestamp: new Date().toISOString(),
@@ -511,6 +628,10 @@ class HarassmentDetector {
             cardType,
             severity: this.getSeverity(score, cardType)
         };
+
+        // 現在のカード情報を設定
+        this.currentCard = incident;
+        this.cardDisplayTime = new Date();
 
         // 履歴に追加
         this.detectionHistory.unshift(incident); // 新しいものを先頭に
@@ -636,19 +757,100 @@ class HarassmentDetector {
 
         document.body.appendChild(cardAlert);
 
-        // 確認ボタンのイベント
-        document.getElementById('dismissCard').addEventListener('click', () => {
+        // カード削除処理
+        const dismissCard = () => {
             cardAlert.remove();
             style.remove();
-        });
+            // カード状態をリセット
+            this.currentCard = null;
+            this.cardDisplayTime = null;
+            console.log('🗑️ カード閉じられました - バックグラウンドモニタリング継続');
+        };
+
+        // 確認ボタンのイベント
+        document.getElementById('dismissCard').addEventListener('click', dismissCard);
 
         // 5秒後に自動で消える（レッドカードは10秒）
         setTimeout(() => {
             if (cardAlert.parentNode) {
-                cardAlert.remove();
-                style.remove();
+                dismissCard();
             }
         }, incident.cardType === 'RED_CARD' ? 10000 : 5000);
+    }
+
+    updateCardDisplay(incident) {
+        // 既存のカード表示を更新
+        const existingCard = document.getElementById('cardAlert');
+        if (!existingCard) return;
+
+        // 更新エフェクトを追加
+        existingCard.style.animation = 'cardPulse 0.3s ease-in-out';
+        
+        // カード内容を更新
+        const cardIcon = incident.cardType === 'RED_CARD' ? '🟥' : '🟨';
+        const cardText = incident.cardType === 'RED_CARD' ? 'レッドカード' : 'イエローカード';
+        const subtitle = incident.cardType === 'RED_CARD' ? '重大なパワハラ発言を検出！' : '不適切な発言を検出！';
+
+        const contentDiv = existingCard.querySelector('div');
+        contentDiv.innerHTML = `
+            <div style="text-align: center; animation: cardShake 0.3s ease-in-out;">
+                <div style="font-size: 120px; margin-bottom: 20px;">${cardIcon}</div>
+                <h1 style="font-size: 48px; margin: 20px 0; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">
+                    ${cardText} 🔄 更新
+                </h1>
+                <h2 style="font-size: 24px; margin: 20px 0; font-weight: 600;">
+                    ${subtitle}
+                </h2>
+                <div style="background: rgba(0,0,0,0.3); padding: 20px; border-radius: 10px; margin: 30px; max-width: 600px;">
+                    <p style="font-size: 20px; font-weight: 500; margin: 0;">
+                        「${incident.text}」
+                    </p>
+                </div>
+                <p style="font-size: 18px; margin-top: 30px;">
+                    スコア: ${incident.score}点 | 検出パターン: ${incident.patterns.length}個
+                </p>
+                <div style="background: rgba(255,255,255,0.2); padding: 10px; border-radius: 5px; margin: 20px; font-size: 14px;">
+                    🔄 バックグラウンドで更新されました
+                </div>
+                <button id="dismissCard" style="
+                    background: rgba(255,255,255,0.9);
+                    color: #333;
+                    border: none;
+                    padding: 15px 30px;
+                    border-radius: 25px;
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin-top: 40px;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                ">
+                    確認しました
+                </button>
+            </div>
+        `;
+
+        console.log('🎨 カード表示を更新しました');
+    }
+
+    playUpdateSound(isRedCard = false) {
+        // カード更新時の短い音
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(isRedCard ? 500 : 700, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.15);
+        } catch (error) {
+            console.warn('Could not play update sound:', error);
+        }
     }
 
     updateTranscript(finalText, interimText) {
