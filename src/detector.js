@@ -200,8 +200,10 @@ class HarassmentDetector {
         this.currentCard = null; // 現在表示中のカード情報
         this.cardDisplayTime = null; // カード表示開始時間
         
-        // 統計情報の初期化
-        this.updateStatistics();
+        // プライバシー保護：UIを強制的にクリア
+        setTimeout(() => {
+            this.forceResetUI();
+        }, 100); // DOM読み込み後に実行
     }
 
     // iOS Safari判定メソッド
@@ -1030,6 +1032,38 @@ class HarassmentDetector {
 
         // 監視時間
         if (monitoringTime) monitoringTime.textContent = this.totalMonitoringTime;
+    }
+
+    forceResetUI() {
+        console.log('🧹 強制的にUI表示をリセットしています...');
+        
+        // 履歴表示を強制リセット
+        const historyElement = document.getElementById('history');
+        if (historyElement) {
+            historyElement.innerHTML = '<div class="text-gray-500 italic text-sm">検出された問題のある発言がここに表示されます</div>';
+        }
+        
+        // 統計情報を強制リセット
+        const elements = {
+            totalDetections: document.getElementById('totalDetections'),
+            todayDetections: document.getElementById('todayDetections'),
+            highestScore: document.getElementById('highestScore'),
+            monitoringTime: document.getElementById('monitoringTime')
+        };
+        
+        Object.values(elements).forEach(element => {
+            if (element) {
+                element.textContent = '0';
+            }
+        });
+        
+        // アラート表示エリアをクリア
+        const alertArea = document.getElementById('alertArea');
+        if (alertArea) {
+            alertArea.innerHTML = '';
+        }
+        
+        console.log('✅ UI表示のリセット完了');
     }
 
     clearHistory() {
