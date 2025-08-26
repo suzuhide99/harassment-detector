@@ -102,7 +102,7 @@ class UIController {
     }
 
     updateInitialState() {
-        // 保存された履歴を表示
+        // プライバシー保護：セッション開始時は空の履歴から開始
         this.detector.updateHistory();
         this.detector.updateStatistics();
 

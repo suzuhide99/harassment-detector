@@ -181,6 +181,16 @@ class HarassmentDetector {
         
         // プライバシー保護：セッションベースの履歴管理
         // ページリロードで履歴をリセット（LocalStorageは使わない）
+        
+        // 既存のLocalStorageデータをクリア（プライバシー保護のため）
+        if (localStorage.getItem('harassmentHistory')) {
+            console.log('🗑️ 既存の履歴データをクリアしています（プライバシー保護）...');
+            localStorage.removeItem('harassmentHistory');
+        }
+        if (localStorage.getItem('totalMonitoringTime')) {
+            localStorage.removeItem('totalMonitoringTime');
+        }
+        
         this.detectionHistory = [];
         this.sessionStartTime = null;
         this.totalMonitoringTime = 0; // セッション中のみカウント
