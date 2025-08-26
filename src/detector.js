@@ -178,9 +178,12 @@ class HarassmentDetector {
         
         this.recognition = null;
         this.isMonitoring = false;
-        this.detectionHistory = JSON.parse(localStorage.getItem('harassmentHistory') || '[]');
+        
+        // プライバシー保護：セッションベースの履歴管理
+        // ページリロードで履歴をリセット（LocalStorageは使わない）
+        this.detectionHistory = [];
         this.sessionStartTime = null;
-        this.totalMonitoringTime = parseInt(localStorage.getItem('totalMonitoringTime') || '0');
+        this.totalMonitoringTime = 0; // セッション中のみカウント
         this.currentTranscript = '';
         
         // カード表示状態管理
@@ -420,7 +423,7 @@ class HarassmentDetector {
         if (this.sessionStartTime) {
             const sessionDuration = Math.floor((new Date() - this.sessionStartTime) / 60000); // minutes
             this.totalMonitoringTime += sessionDuration;
-            localStorage.setItem('totalMonitoringTime', this.totalMonitoringTime.toString());
+            // プライバシー保護：監視時間をLocalStorageに保存しない
             this.updateStatistics();
         }
         
@@ -599,7 +602,7 @@ class HarassmentDetector {
         if (this.detectionHistory.length > 100) {
             this.detectionHistory = this.detectionHistory.slice(0, 100);
         }
-        this.saveToLocalStorage();
+        // プライバシー保護：LocalStorageには保存しない
 
         // カード表示を更新
         this.updateCardDisplay(incident);
@@ -637,7 +640,7 @@ class HarassmentDetector {
         if (this.detectionHistory.length > 100) {
             this.detectionHistory = this.detectionHistory.slice(0, 100);
         }
-        this.saveToLocalStorage();
+        // プライバシー保護：LocalStorageには保存しない
 
         // UI更新
         this.showAlert(incident);
@@ -670,7 +673,7 @@ class HarassmentDetector {
             this.detectionHistory = this.detectionHistory.slice(0, 100);
         }
         
-        this.saveToLocalStorage();
+        // プライバシー保護：LocalStorageには保存しない
 
         // 派手なカード警告表示
         this.showCardAlert(incident);
@@ -1021,7 +1024,7 @@ class HarassmentDetector {
 
     clearHistory() {
         this.detectionHistory = [];
-        this.saveToLocalStorage();
+        // プライバシー保護：LocalStorageには保存しない
         this.updateHistory();
         this.updateStatistics();
     }
@@ -1129,7 +1132,9 @@ class HarassmentDetector {
     }
 
     saveToLocalStorage() {
-        localStorage.setItem('harassmentHistory', JSON.stringify(this.detectionHistory));
+        // プライバシー保護：履歴をLocalStorageに保存しない
+        // 他の人がアクセスしても履歴が見えないように無効化
+        console.log('プライバシー保護のため履歴は保存されません（セッション中のみ有効）');
     }
 
     upgradeToAdvancedMode() {
