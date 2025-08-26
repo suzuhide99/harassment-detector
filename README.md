@@ -4,7 +4,7 @@
 
 ## 🌐 オンライン版（推奨）
 
-**https://suzu-devworks.github.io/harassment-detector/**
+**https://suzuhide99.github.io/harassment-detector/**
 
 どのデバイスからもすぐにご利用いただけます！
 
