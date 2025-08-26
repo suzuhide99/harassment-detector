@@ -48,7 +48,10 @@ class HarassmentDetector {
                     '理解力がない', '判断力がない', '思考能力がない',
                     // 学習・成長への否定
                     '何を学んできた', '今まで何を学んで', '学んできたの', '勉強してきた',
-                    '経験してきた', '身につけてきた', '覚えてきた'
+                    '経験してきた', '身につけてきた', '覚えてきた',
+                    // より具体的なパターンを追加
+                    'あなたは何を学んで', '今まであなたは何を', 'あなたは何を勉強',
+                    'あなたは何を経験', 'あなたは何を身に', 'あなたが学んで'
                 ],
                 weight: 12,
                 color: 'orange'
@@ -477,12 +480,12 @@ class HarassmentDetector {
             totalScore += 5; // 組み合わせパターンは高得点
         }
 
-        // カードシステムでの判定（閾値をさらに下げる）
-        if (totalScore >= 8) {
-            // レッドカード - 重大なパワハラ
+        // カードシステムでの判定（さらに厳格化）
+        if (totalScore >= 6) {
+            // レッドカード - 重大なパワハラ（閾値を8→6に下げ）
             this.handleCardAlert(text, detectedPatterns, totalScore, 'RED_CARD');
-        } else if (totalScore >= 2) {
-            // イエローカード - 軽微だが問題のある発言（超厳格）
+        } else if (totalScore >= 1) {
+            // イエローカード - 軽微だが問題のある発言（閾値を2→1に下げ）
             this.handleCardAlert(text, detectedPatterns, totalScore, 'YELLOW_CARD');
         }
 
