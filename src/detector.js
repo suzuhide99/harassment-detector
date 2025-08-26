@@ -37,7 +37,7 @@ class HarassmentDetector {
                 keywords: [
                     '何度言ったら', 'いい加減にしろ', '話にならない', '呆れる',
                     'ふざけるな', '舐めてる', '甘えるな', '言い訳するな',
-                    '理解できない', '常識がない', '社会人失格', 'やる気がない',
+                    '何も理解できない', '全く理解できない', '常識がない', '社会人失格', 'やる気がない',
                     // 新しく追加
                     'やる気はあるんですか', 'やる気あるの', '自覚があるんですか',
                     'プロフェッショナルとしての自覚', '鏡を見た方がいい',
@@ -158,7 +158,7 @@ class HarassmentDetector {
                     // 行動・態度否定（具体的な表現のみ）
                     '仕事辞め', '給料泥棒', '邪魔な存在',
                     // 能力・知能（具体的な否定文脈のみ）
-                    'やる気がない', '理解力がない', '判断力がない',
+                    'やる気がない', '全く理解力がない', '判断力が全くない',
                     // 威圧的な表現（具体的な威圧文脈のみ）
                     'この程度で', '手間をかけ', '担当から外', '評価を下げ'
                 ],
@@ -192,9 +192,13 @@ class HarassmentDetector {
         this.cardDisplayTime = null; // カード表示開始時間
         
         // プライバシー保護：UIを強制的にクリア
-        setTimeout(() => {
-            this.forceResetUI();
-        }, 100); // DOM読み込み後に実行
+        // DOMContentLoadedイベント後に実行
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.forceResetUI());
+        } else {
+            // 既にDOMが読み込まれている場合は即座に実行
+            setTimeout(() => this.forceResetUI(), 10);
+        }
     }
 
     // iOS Safari判定メソッド
@@ -1028,33 +1032,50 @@ class HarassmentDetector {
     forceResetUI() {
         console.log('🧹 強制的にUI表示をリセットしています...');
         
-        // 履歴表示を強制リセット
-        const historyElement = document.getElementById('history');
-        if (historyElement) {
-            historyElement.innerHTML = '<div class="text-gray-500 italic text-sm">検出された問題のある発言がここに表示されます</div>';
-        }
-        
-        // 統計情報を強制リセット
-        const elements = {
-            totalDetections: document.getElementById('totalDetections'),
-            todayDetections: document.getElementById('todayDetections'),
-            highestScore: document.getElementById('highestScore'),
-            monitoringTime: document.getElementById('monitoringTime')
+        // 複数回試行してより確実にリセット
+        const resetAttempt = () => {
+            let resetCount = 0;
+            
+            // 履歴表示を強制リセット
+            const historyElement = document.getElementById('history');
+            if (historyElement) {
+                historyElement.innerHTML = '<div class="text-gray-500 italic text-sm">検出された問題のある発言がここに表示されます</div>';
+                resetCount++;
+            }
+            
+            // 統計情報を強制リセット
+            const elements = {
+                totalDetections: document.getElementById('totalDetections'),
+                todayDetections: document.getElementById('todayDetections'),
+                highestScore: document.getElementById('highestScore'),
+                monitoringTime: document.getElementById('monitoringTime')
+            };
+            
+            Object.entries(elements).forEach(([key, element]) => {
+                if (element) {
+                    element.textContent = '0';
+                    element.innerText = '0';  // 念のため両方設定
+                    resetCount++;
+                    console.log(`✅ ${key} をリセット`);
+                }
+            });
+            
+            // アラート表示エリアをクリア
+            const alertArea = document.getElementById('alertArea');
+            if (alertArea) {
+                alertArea.innerHTML = '';
+                resetCount++;
+            }
+            
+            console.log(`✅ UI表示のリセット完了 (${resetCount}個の要素をリセット)`);
+            return resetCount > 0;
         };
         
-        Object.values(elements).forEach(element => {
-            if (element) {
-                element.textContent = '0';
-            }
-        });
-        
-        // アラート表示エリアをクリア
-        const alertArea = document.getElementById('alertArea');
-        if (alertArea) {
-            alertArea.innerHTML = '';
+        // 即座に実行し、失敗した場合は少し待ってから再実行
+        if (!resetAttempt()) {
+            console.log('⚠️ 初回リセット失敗、再試行します...');
+            setTimeout(resetAttempt, 500);
         }
-        
-        console.log('✅ UI表示のリセット完了');
     }
 
     clearHistory() {
